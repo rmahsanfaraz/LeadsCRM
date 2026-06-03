@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Users, LayoutDashboard, Target, Building2, UserCircle,
   Calendar, ChevronRight, LogOut, Bell, User,
@@ -40,6 +40,17 @@ function App() {
   const [dashboardStats, setDashboardStats] = useState(null);
   const [returnTab, setReturnTab] = useState(() => localStorage.getItem('returnTab') || 'Dashboard');
   const [loading, setLoading] = useState(true);
+
+  // Keep references to avoid stale closures in background polling/retries
+  const selectedLeadRef = useRef(selectedLead);
+  selectedLeadRef.current = selectedLead;
+
+  const persistedLeadIdRef = useRef(persistedLeadId);
+  persistedLeadIdRef.current = persistedLeadId;
+
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+
 
   const authHeaders = {
     'Content-Type': 'application/json',
@@ -86,7 +97,7 @@ function App() {
       if (Array.isArray(data)) {
         setLeads(data);
         // Sync selectedLead if currently viewing one
-        const currentLeadId = selectedLead?._id || persistedLeadId;
+        const currentLeadId = selectedLeadRef.current?._id || (activeTabRef.current === 'LeadDetails' ? persistedLeadIdRef.current : null);
         if (currentLeadId) {
           const updated = data.find(l => l._id === currentLeadId);
           if (updated) setSelectedLead(updated);
@@ -152,7 +163,7 @@ function App() {
       setDashboardStats(statsData);
 
       // Sync selectedLead if currently viewing one
-      const currentLeadId = selectedLead?._id || persistedLeadId;
+      const currentLeadId = selectedLeadRef.current?._id || (activeTabRef.current === 'LeadDetails' ? persistedLeadIdRef.current : null);
       if (currentLeadId) {
         const updatedLead = (Array.isArray(leadsData) ? leadsData : []).find(l => l._id === currentLeadId);
         if (updatedLead) setSelectedLead(updatedLead);
@@ -166,6 +177,159 @@ function App() {
       setLoading(false);
       return true; // non-retryable error, stop retrying
     }
+  };
+
+  const handleExportExcel = () => {
+    if (!leads || leads.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
+
+    const headers = [
+      "Company Name",
+      "Contact Person",
+      "Phone / WhatsApp",
+      "Email",
+      "City / Area",
+      "Postcode",
+      "Business Type",
+      "Lead Owner",
+      "Status",
+      "Interested Products",
+      "Lead Source",
+      "Supplier",
+      "Date Contacted",
+      "Contact Method",
+      "Response",
+      "Next Follow Up Date",
+      "Sells Competitor Brands",
+      "Top Competitor Brand Name",
+      "Usual Order Quantity",
+      "Is Contact Decision Maker",
+      "Decision Maker Name",
+      "Decision Maker Contact Number",
+      "Needs Sample / Pricing",
+      "Required Next Step",
+      "Lost Reason",
+      "Price List Sent",
+      "Sample Delivered",
+      "Sample Delivery Date",
+      "Catalogue Sent",
+      "Company Profile Sent",
+      "Customer Agreed",
+      "Reason For Decision",
+      "Customer Feedback",
+      "Delivery Date",
+      "Visit Scheduled Date",
+      "OTO Ref",
+      "OTO Order ID",
+      "Tracking ID",
+      "Sample Recipient Name",
+      "Sample Address",
+      "Sample Postcode",
+      "Sample Contact No",
+      "Notes & Activity History"
+    ];
+
+    // Build the rows
+    const rows = leads.map(lead => {
+      // Find matching user name for lead owner
+      let leadOwnerName = "";
+      if (lead.leadOwner) {
+        const ownerId = lead.leadOwner._id || lead.leadOwner;
+        const ownerUser = usersList.find(u => u._id === ownerId);
+        leadOwnerName = ownerUser ? ownerUser.name : (lead.leadOwner.name || lead.leadOwner);
+      }
+
+      // Format products list
+      const products = Array.isArray(lead.interestedProducts) ? lead.interestedProducts.join(", ") : "";
+
+      // Gather matching activities/notes
+      const leadActivities = activityList.filter(act => {
+        const actLeadId = act.lead?._id || act.lead;
+        return actLeadId === lead._id;
+      });
+
+      const notesString = leadActivities
+        .map(act => {
+          const userName = act.user || "System";
+          const dateStr = act.createdAt ? new Date(act.createdAt).toLocaleString() : "";
+          const msg = act.text || "";
+          return `[${userName} - ${dateStr}] ${msg}`;
+        })
+        .join(" | ");
+
+      return [
+        lead.companyName || "",
+        lead.contactPerson || "",
+        lead.phoneWhatsApp || "",
+        lead.email || "",
+        lead.cityArea || "",
+        lead.postcode || "",
+        lead.businessType || "",
+        leadOwnerName || "",
+        lead.status || "New Lead",
+        products,
+        lead.leadSource || "",
+        lead.supplier || "",
+        lead.dateContacted ? new Date(lead.dateContacted).toLocaleDateString() : "",
+        lead.contactMethod || "",
+        lead.response || "",
+        lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toLocaleString() : "",
+        lead.sellsCompetitorBrands || "",
+        lead.topCompetitorBrandName || "",
+        lead.usualOrderQuantity || "",
+        lead.isCurrentContactDecisionMaker || "",
+        lead.decisionMakerName || "",
+        lead.decisionMakerContactNumber || "",
+        lead.needsSamplePricing || "",
+        lead.requiredNextStep || "",
+        lead.lostReason || "",
+        lead.priceListSent || "",
+        lead.sampleDelivered || "",
+        lead.sampleDeliveryDate ? new Date(lead.sampleDeliveryDate).toLocaleDateString() : "",
+        lead.catalogueSent || "",
+        lead.companyProfileSent || "",
+        lead.customerAgreed || "",
+        lead.reasonForDecision || "",
+        lead.customerFeedback || "",
+        lead.deliveryDate ? new Date(lead.deliveryDate).toLocaleDateString() : "",
+        lead.visitScheduledDate ? new Date(lead.visitScheduledDate).toLocaleString() : "",
+        lead.otoRef || "",
+        lead.otoOrderId || "",
+        lead.trackingId || "",
+        lead.sampleRecipientName || "",
+        lead.sampleAddress || "",
+        lead.samplePostcode || "",
+        lead.sampleContactNo || "",
+        notesString
+      ];
+    });
+
+    // Convert to CSV format helper
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => 
+        row.map(val => {
+          // Escape quotes and wrap in quotes if contains comma, newline or quotes
+          const str = String(val);
+          if (str.includes(",") || str.includes("\n") || str.includes("\r") || str.includes('"')) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
+        }).join(",")
+      )
+    ].join("\n");
+
+    // Download CSV
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `leads_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // ─── Optimistic State Helpers ───────────────────────────────────────
@@ -585,6 +749,7 @@ function App() {
                 leads={leads}
                 onAdd={() => setShowAddModal(true)}
                 onImport={() => { setImportType('leads'); setShowImportModal(true); }}
+                onExport={handleExportExcel}
                 viewMode={opportunitiesViewMode}
                 setViewMode={setOpportunitiesViewMode}
                 users={usersList}
@@ -600,6 +765,7 @@ function App() {
               <AccountsView
                 leads={leads.filter(l => ['Order Confirmed', 'Delivery Scheduled', 'Delivered', 'Payment Pending', 'Payment Received', 'Active Customer / Repeat Order'].includes(l.status))}
                 onImport={() => { setImportType('accounts'); setShowImportModal(true); }}
+                onExport={handleExportExcel}
                 viewMode={accountsViewMode}
                 setViewMode={setAccountsViewMode}
                 onLeadClick={(lead) => {
@@ -782,7 +948,7 @@ const DashboardView = ({ stats, leads, activityList, onNavigate, onLeadClick }) 
   </div>
 );
 
-const OpportunitiesView = ({ leads, onAdd, onImport, viewMode, setViewMode, onLeadClick, users = [], currentUser }) => {
+const OpportunitiesView = ({ leads, onAdd, onImport, onExport, viewMode, setViewMode, onLeadClick, users = [], currentUser }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [userFilter, setUserFilter] = useState('All Users');
@@ -842,6 +1008,7 @@ const OpportunitiesView = ({ leads, onAdd, onImport, viewMode, setViewMode, onLe
           <p>Manage your payment opportunities pipeline</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button className="btn-secondary" onClick={onExport}><Download size={16} /> Export Excel</button>
           <button className="btn-secondary" onClick={onImport}><Upload size={16} /> Import CSV</button>
           <button className="btn-primary" onClick={onAdd}><Plus size={16} /> Add Opportunity</button>
         </div>
@@ -995,7 +1162,7 @@ const OpportunitiesView = ({ leads, onAdd, onImport, viewMode, setViewMode, onLe
   );
 };
 
-const AccountsView = ({ leads, onImport, viewMode, setViewMode, onLeadClick }) => {
+const AccountsView = ({ leads, onImport, onExport, viewMode, setViewMode, onLeadClick }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState('All');
 
@@ -1006,7 +1173,10 @@ const AccountsView = ({ leads, onImport, viewMode, setViewMode, onLeadClick }) =
           <h1>Accounts</h1>
           <p>{leads.filter(l => l.status === 'Active Customer / Repeat Order').length} repeat customers, {leads.length} total active accounts</p>
         </div>
-        <button className="btn-secondary" onClick={onImport}><Upload size={16} /> Import CSV</button>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button className="btn-secondary" onClick={onExport}><Download size={16} /> Export Excel</button>
+          <button className="btn-secondary" onClick={onImport}><Upload size={16} /> Import CSV</button>
+        </div>
       </header>
 
       <div className="filters-bar">
