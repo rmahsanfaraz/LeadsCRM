@@ -11,6 +11,60 @@ import './index.css';
 
 
 
+const PhoneInputWithCountry = ({ value, onChange, placeholder = "Phone number", className = "" }) => {
+  const codes = ['+44', '+1', '+61', '+49', '+33', '+34', '+971', '+92', '+91'];
+  
+  // Parse the current value
+  let selectedCode = '+44';
+  let localNum = value || '';
+  for (const code of codes) {
+    if (value && value.startsWith(code)) {
+      selectedCode = code;
+      localNum = value.slice(code.length);
+      break;
+    }
+  }
+
+  const handleCodeChange = (e) => {
+    const newCode = e.target.value;
+    onChange(newCode + localNum);
+  };
+
+  const handleLocalChange = (e) => {
+    const val = e.target.value.replace(/[^\d\s-]/g, ''); // keep digits, spaces, hyphens
+    onChange(selectedCode + val);
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+      <select
+        style={{ width: '105px', flexShrink: 0, padding: '0 0.5rem', height: '38px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
+        value={selectedCode}
+        onChange={handleCodeChange}
+        className="form-select"
+      >
+        <option value="+44">UK (+44)</option>
+        <option value="+1">US (+1)</option>
+        <option value="+61">AUS (+61)</option>
+        <option value="+49">GER (+49)</option>
+        <option value="+33">FRA (+33)</option>
+        <option value="+34">ESP (+34)</option>
+        <option value="+971">UAE (+971)</option>
+        <option value="+92">PK (+92)</option>
+        <option value="+91">IND (+91)</option>
+      </select>
+      <input
+        type="text"
+        placeholder={placeholder}
+        value={localNum}
+        onChange={handleLocalChange}
+        className={className}
+        style={{ flexGrow: 1 }}
+      />
+    </div>
+  );
+};
+
 function App() {
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('user')));
   const [token, setToken] = useState(() => localStorage.getItem('token'));
@@ -1971,10 +2025,9 @@ const AddOpportunityModal = ({ onClose, onSuccess, authHeaders, users = [] }) =>
             </div>
             <div className={`form-field ${errors.phoneWhatsApp ? 'error' : ''}`}>
               <label>Phone / WhatsApp *</label>
-              <input
-                type="text"
+              <PhoneInputWithCountry
                 value={formData.phoneWhatsApp}
-                onChange={e => setFormData({ ...formData, phoneWhatsApp: e.target.value })}
+                onChange={val => setFormData({ ...formData, phoneWhatsApp: val })}
               />
             </div>
             <div className={`form-field ${errors.email ? 'error' : ''}`}>
@@ -3169,11 +3222,10 @@ const LeadDetailsView = ({ lead, onBack, onSuccess, onDelete, onNavigateToOpport
               <div className={`contact-info-item ${contactErrors.phoneWhatsApp ? 'error' : ''}`}>
                 <Phone size={18} />
                 {isEditingContact ? (
-                  <input
-                    type="text"
-                    className={contactErrors.phoneWhatsApp ? 'error' : ''}
+                  <PhoneInputWithCountry
                     value={contactForm.phoneWhatsApp}
-                    onChange={e => setContactForm({ ...contactForm, phoneWhatsApp: e.target.value })}
+                    onChange={val => setContactForm({ ...contactForm, phoneWhatsApp: val })}
+                    className={contactErrors.phoneWhatsApp ? 'error' : ''}
                   />
                 ) : (
                   <span>{lead.phoneWhatsApp}</span>
@@ -3430,7 +3482,10 @@ const LeadDetailsView = ({ lead, onBack, onSuccess, onDelete, onNavigateToOpport
                             </div>
                             <div className="form-field">
                               <label>Decision Maker Phone</label>
-                              <input type="text" value={workflowForm.decisionMakerContactNumber} onChange={e => handleUpdateWorkflow({ decisionMakerContactNumber: e.target.value })} />
+                              <PhoneInputWithCountry
+                                value={workflowForm.decisionMakerContactNumber}
+                                onChange={val => handleUpdateWorkflow({ decisionMakerContactNumber: val })}
+                              />
                             </div>
                           </>
                         )}
@@ -3523,11 +3578,10 @@ const LeadDetailsView = ({ lead, onBack, onSuccess, onDelete, onNavigateToOpport
                           </div>
                           <div className="form-field">
                             <label>Contact No</label>
-                            <input
-                              type="text"
+                            <PhoneInputWithCountry
                               value={workflowForm.sampleContactNo}
                               placeholder="Contact Phone Number"
-                              onChange={e => handleUpdateWorkflow({ sampleContactNo: e.target.value })}
+                              onChange={val => handleUpdateWorkflow({ sampleContactNo: val })}
                             />
                           </div>
                         </div>
