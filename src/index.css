@@ -386,8 +386,9 @@
 .business-cell { font-weight: 700; color: #1e293b; }
 .contact-cell { font-weight: 600; color: #475569; }
 
-.phone-cell { display: flex; align-items: center; gap: 8px; color: #2563eb; font-weight: 600; }
-.copy-icon { color: #94a3b8; cursor: pointer; }
+.phone-cell { color: #2563eb; font-weight: 600; }
+.phone-cell-container { display: inline-flex; align-items: center; gap: 8px; vertical-align: middle; }
+.copy-icon { color: #94a3b8; cursor: pointer; transition: color 0.2s; }
 .copy-icon:hover { color: #2563eb; }
 
 .new-badge {

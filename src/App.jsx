@@ -1843,7 +1843,9 @@ const AccountRow = ({ business, contact, phone, postcode, status, volume, mid })
     <td className="business-cell">{business}</td>
     <td className="contact-cell">{contact}</td>
     <td className="phone-cell">
-      {phone} <Copy size={12} className="copy-icon" />
+      <span className="phone-cell-container">
+        {phone} <Copy size={12} className="copy-icon" />
+      </span>
     </td>
     <td>{postcode}</td>
     <td><span className="status-badge approved">{status}</span></td>
@@ -2665,7 +2667,9 @@ const TableRow = ({ business, contact, phone, postcode, status, bda, bdm, callba
     <td className="business-cell">{business}</td>
     <td className="contact-cell">{contact}</td>
     <td className="phone-cell">
-      {phone} {phone !== '—' && <Copy size={12} className="copy-icon" />}
+      <span className="phone-cell-container">
+        {phone} {phone !== '—' && <Copy size={12} className="copy-icon" />}
+      </span>
     </td>
     <td>{postcode}</td>
     <td><span className={`status-badge-${(status || 'new').toLowerCase().replace(/[\s/]+/g, '')}`}>{status || 'New Lead'}</span></td>
