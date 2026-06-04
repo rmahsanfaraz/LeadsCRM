@@ -239,6 +239,36 @@ function App() {
       return;
     }
 
+    // 1. Map leads along with their sorted activities list (oldest first)
+    const leadsWithNotes = leads.map(lead => {
+      const leadActivities = activityList.filter(act => {
+        const actLeadId = act.lead?._id || act.lead;
+        return actLeadId === lead._id;
+      });
+
+      // Sort activities oldest to newest
+      const sortedActivities = [...leadActivities].sort((a, b) => {
+        return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+      });
+
+      const notesArr = sortedActivities.map(act => {
+        const userName = act.user || "System";
+        const dateStr = act.createdAt ? new Date(act.createdAt).toLocaleString() : "";
+        const msg = act.text || "";
+        return `[${userName} - ${dateStr}] ${msg}`;
+      });
+
+      return { lead, notesArr };
+    });
+
+    // 2. Determine max note columns dynamically
+    let maxNotes = 0;
+    leadsWithNotes.forEach(item => {
+      if (item.notesArr.length > maxNotes) {
+        maxNotes = item.notesArr.length;
+      }
+    });
+
     const headers = [
       "Company Name",
       "Contact Person",
@@ -281,12 +311,15 @@ function App() {
       "Sample Recipient Name",
       "Sample Address",
       "Sample Postcode",
-      "Sample Contact No",
-      "Notes & Activity History"
+      "Sample Contact No"
     ];
 
-    // Build the rows
-    const rows = leads.map(lead => {
+    for (let i = 1; i <= maxNotes; i++) {
+      headers.push(`Note ${i}`);
+    }
+
+    // 3. Build the rows
+    const rows = leadsWithNotes.map(({ lead, notesArr }) => {
       // Find matching user name for lead owner
       let leadOwnerName = "";
       if (lead.leadOwner) {
@@ -298,22 +331,7 @@ function App() {
       // Format products list
       const products = Array.isArray(lead.interestedProducts) ? lead.interestedProducts.join(", ") : "";
 
-      // Gather matching activities/notes
-      const leadActivities = activityList.filter(act => {
-        const actLeadId = act.lead?._id || act.lead;
-        return actLeadId === lead._id;
-      });
-
-      const notesString = leadActivities
-        .map(act => {
-          const userName = act.user || "System";
-          const dateStr = act.createdAt ? new Date(act.createdAt).toLocaleString() : "";
-          const msg = act.text || "";
-          return `[${userName} - ${dateStr}] ${msg}`;
-        })
-        .join(" | ");
-
-      return [
+      const row = [
         lead.companyName || "",
         lead.contactPerson || "",
         lead.phoneWhatsApp || "",
@@ -355,9 +373,15 @@ function App() {
         lead.sampleRecipientName || "",
         lead.sampleAddress || "",
         lead.samplePostcode || "",
-        lead.sampleContactNo || "",
-        notesString
+        lead.sampleContactNo || ""
       ];
+
+      // Append notes
+      for (let i = 0; i < maxNotes; i++) {
+        row.push(notesArr[i] || "");
+      }
+
+      return row;
     });
 
     // Convert to CSV format helper
